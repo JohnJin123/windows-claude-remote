@@ -7,7 +7,7 @@
 
 开关文件 ~/.mobilecli/sync-enabled：存在=出门推送，不存在=在家静默。
 """
-import sys, json, os, urllib.request, urllib.parse
+import sys, json, os, urllib.request, urllib.parse, time, random
 from datetime import datetime
 
 LOG = os.path.expanduser(r'~/.mobilecli/hook-events.log')
@@ -51,12 +51,24 @@ def is_asking(text):
 
 
 def send_bark(title, body):
+    """推送 Bark，带失败重试，扛过 api.day.app 的瞬时抖动。"""
     url = 'https://api.day.app/{}/{}/{}'.format(
         BARK_KEY,
         urllib.parse.quote(title, safe=''),
         urllib.parse.quote(body, safe=''),
     )
-    urllib.request.urlopen(url, timeout=10)
+    max_attempts = 4
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            urllib.request.urlopen(url, timeout=15)
+            return True
+        except Exception as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                # 指数退避 + 抖动，等待 1s/2s/4s 左右
+                time.sleep((2 ** attempt) + random.uniform(0, 1))
+    raise last_err
 
 
 def main():
