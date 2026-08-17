@@ -135,8 +135,12 @@ path.canonicalize()
 原实现 `spawn_session_windows` 用 `CREATE_NEW_CONSOLE` 直接 spawn `mobilecli.exe`，但新进程继承 daemon 的（后台）stdout 句柄，新窗口是空的。改成用 Windows Terminal 打开一个 Git Bash tab，再在里面运行 mobilecli：
 
 ```rust
-let mut inner = format!("\"{}\" --name \"{}\" --quiet", mobilecli_bin, session_name);
-if let Some(dir) = working_dir {
+let bash_path = r"C:\Program Files\Git\bin\bash.exe";
+let mobilecli_bash = mobilecli_bin.replace('\\', "/");
+let working_dir_bash = working_dir.map(|d| d.replace('\\', "/"));
+
+let mut inner = format!("\"{}\" --name \"{}\" --quiet", mobilecli_bash, session_name);
+if let Some(dir) = &working_dir_bash {
     inner.push_str(&format!(" --dir \"{}\"", dir));
 }
 inner.push(' ');
@@ -148,14 +152,13 @@ for a in &effective_args {
 }
 
 let wt = r"C:\Users\<你>\AppData\Local\Microsoft\WindowsApps\wt.exe";
-let bash = r"C:\Program Files\Git\bin\bash.exe";
 let mut cmd = std::process::Command::new(wt);
 cmd.arg("new-tab")
     .arg("--title")
     .arg(session_name)
     .arg("--startingDirectory")
-    .arg(working_dir.unwrap_or("C:\\Users\\<你>"))
-    .arg(bash)
+    .arg(working_dir_bash.as_deref().unwrap_or("C:/Users/<你>"))
+    .arg(bash_path)
     .arg("-lc")
     .arg(&inner);
 ```
