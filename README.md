@@ -130,9 +130,9 @@ path.canonicalize()
     }))
 ```
 
-### 修复 B：手机发起 session 时，电脑弹出 Git Bash 窗口（`daemon.rs`）
+### 修复 B：手机发起 session 时，电脑弹出 Windows Terminal + Git Bash（`daemon.rs`）
 
-原实现 `spawn_session_windows` 用 `CREATE_NEW_CONSOLE` 直接 spawn `mobilecli.exe`，但新进程继承 daemon 的（后台）stdout 句柄，新窗口是空的。改成用 mintty 拉起一个 Git Bash 窗口运行 mobilecli：
+原实现 `spawn_session_windows` 用 `CREATE_NEW_CONSOLE` 直接 spawn `mobilecli.exe`，但新进程继承 daemon 的（后台）stdout 句柄，新窗口是空的。改成用 Windows Terminal 打开一个 Git Bash tab，再在里面运行 mobilecli：
 
 ```rust
 let mut inner = format!("\"{}\" --name \"{}\" --quiet", mobilecli_bin, session_name);
@@ -147,10 +147,17 @@ for a in &effective_args {
     inner.push('"');
 }
 
-let mintty = r"C:\Program Files\Git\usr\bin\mintty.exe";
+let wt = r"C:\Users\<你>\AppData\Local\Microsoft\WindowsApps\wt.exe";
 let bash = r"C:\Program Files\Git\bin\bash.exe";
-let mut cmd = std::process::Command::new(mintty);
-cmd.arg("-e").arg(bash).arg("-lc").arg(&inner);
+let mut cmd = std::process::Command::new(wt);
+cmd.arg("new-tab")
+    .arg("--title")
+    .arg(session_name)
+    .arg("--startingDirectory")
+    .arg(working_dir.unwrap_or("C:\\Users\\<你>"))
+    .arg(bash)
+    .arg("-lc")
+    .arg(&inner);
 ```
 
 ### 修复 C：过滤 OSC 10/11 颜色序列泄漏（`pty_wrapper.rs`）
